@@ -14,6 +14,17 @@ RW_DMG="$DMG_WORK_DIR/$APP_NAME-$VERSION-rw.dmg"
 FINAL_DMG="$DIST_DIR/$DMG_NAME"
 BACKGROUND_NAME="background.png"
 
+# Single source of truth for the installer window: the background is rendered at
+# exactly these dimensions, so the two can never drift apart.
+WINDOW_X=140
+WINDOW_Y=140
+WINDOW_WIDTH=680
+WINDOW_HEIGHT=420
+ICON_SIZE=112
+ICON_Y=198
+APP_ICON_X=190
+LINK_ICON_X=500
+
 if [[ ! -d "$APP_DIR" ]]; then
   "$ROOT_DIR/scripts/build-release.sh"
 fi
@@ -39,7 +50,9 @@ mkdir -p "$DMG_STAGING_DIR/.background"
 
 cp -R "$APP_DIR" "$DMG_STAGING_DIR/$APP_NAME.app"
 ln -s /Applications "$DMG_STAGING_DIR/Applications"
-swift "$ROOT_DIR/scripts/generate-dmg-background.swift" "$DMG_STAGING_DIR/.background/$BACKGROUND_NAME"
+swift "$ROOT_DIR/scripts/generate-dmg-background.swift" \
+  "$DMG_STAGING_DIR/.background/$BACKGROUND_NAME" \
+  "$WINDOW_WIDTH" "$WINDOW_HEIGHT"
 
 rm -f "$RW_DMG" "$FINAL_DMG"
 hdiutil create \
@@ -68,37 +81,57 @@ trap cleanup EXIT
 
 SetFile -a V "$MOUNT_POINT/.background"
 
-osascript <<APPLESCRIPT
+# Finder routinely ignores the first `set bounds` while it is still laying the
+# window out, leaving a window wider than the background and a blank band down
+# the right-hand side. Set it repeatedly until it takes, then report back what
+# actually stuck so the build can refuse to ship a misaligned window.
+ACTUAL_BOUNDS="$(osascript <<APPLESCRIPT
 tell application "Finder"
   set dmgFolder to POSIX file "$MOUNT_POINT" as alias
   tell folder dmgFolder
     open
-    set current view of container window to icon view
-    set toolbar visible of container window to false
-    set statusbar visible of container window to false
-    set sidebar width of container window to 0
-    set bounds of container window to {140, 140, 820, 560}
+    set theWindow to container window
+    set current view of theWindow to icon view
+    set toolbar visible of theWindow to false
+    set statusbar visible of theWindow to false
 
-    set viewOptions to icon view options of container window
+    set viewOptions to icon view options of theWindow
     set arrangement of viewOptions to not arranged
-    set icon size of viewOptions to 112
+    set icon size of viewOptions to $ICON_SIZE
     set background picture of viewOptions to file ".background:$BACKGROUND_NAME"
 
-    set position of item "$APP_NAME.app" of container window to {190, 198}
-    set position of item "Applications" of container window to {500, 198}
+    set position of item "$APP_NAME.app" of theWindow to {$APP_ICON_X, $ICON_Y}
+    set position of item "Applications" of theWindow to {$LINK_ICON_X, $ICON_Y}
+
+    repeat 10 times
+      set bounds of theWindow to {$WINDOW_X, $WINDOW_Y, $WINDOW_X + $WINDOW_WIDTH, $WINDOW_Y + $WINDOW_HEIGHT}
+      delay 0.4
+      set b to bounds of theWindow
+      if ((item 3 of b) - (item 1 of b)) is $WINDOW_WIDTH and ((item 4 of b) - (item 2 of b)) is $WINDOW_HEIGHT then
+        exit repeat
+      end if
+    end repeat
 
     update without registering applications
-    set bounds of container window to {140, 140, 820, 560}
     delay 1
+    set b to bounds of theWindow
     close
   end tell
+  return (((item 3 of b) - (item 1 of b)) as text) & "x" & (((item 4 of b) - (item 2 of b)) as text)
 end tell
 APPLESCRIPT
+)"
 
 sync
 
 if [[ ! -f "$MOUNT_POINT/.DS_Store" ]]; then
   echo "DMG styling failed: Finder did not write .DS_Store." >&2
+  exit 1
+fi
+
+if [[ "$ACTUAL_BOUNDS" != "${WINDOW_WIDTH}x${WINDOW_HEIGHT}" ]]; then
+  echo "DMG styling failed: Finder settled on a ${ACTUAL_BOUNDS} window, expected ${WINDOW_WIDTH}x${WINDOW_HEIGHT}." >&2
+  echo "The ${WINDOW_WIDTH}x${WINDOW_HEIGHT} background would not fill it." >&2
   exit 1
 fi
 
