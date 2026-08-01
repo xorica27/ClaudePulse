@@ -14,7 +14,7 @@ public enum ClaudeUsagePayloadParser {
         }
 
         return UsageData(
-            snapshot: snapshot,
+            snapshot: snapshot.withPlanType(snapshot.planType.flatMap(ClaudePlanResolver.displayName(forTier:))),
             additionalLimits: parseAdditionalUsage(from: root),
             source: source,
             sourcePath: sourcePath,
@@ -42,16 +42,34 @@ public enum ClaudeUsagePayloadParser {
         return nil
     }
 
+    private static let primaryWindowKeys = [
+        "primary", "fiveHour", "five_hour", "5h", "shortWindow", "short_window",
+        "planUsage", "plan_usage", "usageCredits", "usage_credits"
+    ]
+
+    private static let secondaryWindowKeys = [
+        "secondary", "weekly", "week", "seven_day", "longWindow", "long_window", "allModels", "all_models"
+    ]
+
+    /// Keys already consumed as the two headline windows, so they are not also
+    /// reported as model-specific extras.
+    private static let mainWindowKeys = Set(primaryWindowKeys + secondaryWindowKeys)
+
+    private static func isFiveHourKey(_ key: String) -> Bool {
+        let normalized = key.lowercased()
+        return normalized.contains("five_hour")
+            || normalized.contains("fivehour")
+            || normalized.contains("5h")
+    }
+
     private static func parseSnapshot(_ bucket: [String: Any]) -> UsageSnapshot {
         UsageSnapshot(
-            planType: firstString(bucket, keys: ["planType", "plan_type", "tier", "product", "product_name"]),
-            primary: parseFirstWindow(bucket, keys: [
-                "primary", "fiveHour", "five_hour", "5h", "shortWindow", "short_window",
-                "planUsage", "plan_usage", "usageCredits", "usage_credits"
-            ]) ?? parseWindow(bucket),
-            secondary: parseFirstWindow(bucket, keys: [
-                "secondary", "weekly", "week", "seven_day", "longWindow", "long_window", "allModels", "all_models"
+            planType: firstString(bucket, keys: [
+                "planType", "plan_type", "tier", "rate_limit_tier", "rateLimitTier",
+                "subscription", "subscription_type", "product", "product_name"
             ]),
+            primary: parseFirstWindow(bucket, keys: primaryWindowKeys) ?? parseWindow(bucket),
+            secondary: parseFirstWindow(bucket, keys: secondaryWindowKeys),
             usageReachedType: firstString(bucket, keys: [
                 "usageReachedType", "usage_reached_type", "limitReachedType", "limit_reached_type"
             ])
@@ -69,26 +87,27 @@ public enum ClaudeUsagePayloadParser {
                 additional[key] = snapshot
             }
         }
-        for key in [
-            "seven_day_opus",
-            "seven_day_sonnet",
-            "seven_day_oauth_apps",
-            "seven_day_cowork",
-            "seven_day_omelette",
-            "omelette_promotional"
-        ] {
-            guard let value = bucket[key] as? [String: Any] else {
+        // Model- and feature-specific buckets (seven_day_fable, seven_day_opus,
+        // seven_day_sonnet, seven_day_cowork, ...) appear and disappear as models
+        // ship, so discover any sibling object that parses as a window rather than
+        // maintaining a fixed list that silently drops new ones. Fable in
+        // particular bills against its own weekly limit, separate from the shared
+        // pool reported by `secondary`.
+        for (key, value) in bucket {
+            guard additional[key] == nil,
+                  !Self.mainWindowKeys.contains(key),
+                  let object = value as? [String: Any],
+                  let window = parseWindow(object) else {
                 continue
             }
-            let snapshot = UsageSnapshot(
+
+            let isFiveHour = Self.isFiveHourKey(key)
+            additional[key] = UsageSnapshot(
                 planType: nil,
-                primary: nil,
-                secondary: parseWindow(value),
+                primary: isFiveHour ? window : nil,
+                secondary: isFiveHour ? nil : window,
                 usageReachedType: nil
             )
-            if snapshot.secondary != nil {
-                additional[key] = snapshot
-            }
         }
         for key in ["usagesByLimitId", "usageByLimitId", "usage_by_limit_id"] {
             guard let values = bucket[key] as? [String: Any] else {

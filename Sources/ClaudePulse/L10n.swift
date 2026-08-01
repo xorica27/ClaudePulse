@@ -77,6 +77,11 @@ enum L10n {
         }
     }
 
+    /// "Fable (weekly)" — a model-specific limit paired with the window it covers.
+    static func limitLabel(_ limit: NamedUsageLimit) -> String {
+        format("limit.labelWithWindow", limit.label, notificationWindowTitle(limit.kind))
+    }
+
     static func emptyStateMessage(_ emptyState: EmptyState) -> String {
         switch emptyState {
         case .claudeNotInstalled:

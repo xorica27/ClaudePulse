@@ -18,6 +18,7 @@ struct ClaudePulseTests {
             "status.weekly.short",
             "percent.used",
             "percent.remainingAndUsed",
+            "limit.labelWithWindow",
             "menu.refreshNow",
             "menu.openClaudeUsage",
             "menu.preferences",
@@ -272,7 +273,7 @@ struct ClaudePulseTests {
         let object = try #require(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
         let data = try ClaudeUsagePayloadParser.parse(result: object, source: .localStorage, sourcePath: "/tmp/Local Storage/leveldb/000001.log")
 
-        #expect(data.snapshot.planType == "prolite")
+        #expect(data.snapshot.planType == "Prolite")
         #expect(data.snapshot.primary?.remainingPercent == 91)
         #expect(data.snapshot.secondary?.remainingPercent == 90)
         #expect(data.source == .localStorage)
@@ -318,6 +319,107 @@ struct ClaudePulseTests {
     }
 
     @Test
+    func testUsagePayloadCarriesNoPlanSoPlanTypeStaysNil() throws {
+        // The live /usage response has no plan field at all. Guard the assumption
+        // that the plan has to come from the organizations endpoint instead.
+        let json = """
+        {
+          "five_hour": {"utilization": 3.0, "resets_at": "2026-06-22T06:39:59Z"},
+          "seven_day": {"utilization": 44.0, "resets_at": "2026-06-28T21:59:59Z"}
+        }
+        """
+        let object = try #require(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+        let data = try ClaudeUsagePayloadParser.parse(result: object, source: .claudeAPI)
+
+        #expect(data.snapshot.planType == nil)
+    }
+
+    @Test
+    func testResolvesPlanNameFromOrganizationsPayload() throws {
+        let json = """
+        [
+          {"uuid": "other-org", "rate_limit_tier": "default_pro"},
+          {"uuid": "my-org", "rate_limit_tier": "default_claude_max_20x"}
+        ]
+        """
+        let object = try JSONSerialization.jsonObject(with: Data(json.utf8))
+
+        #expect(ClaudePlanResolver.planName(inOrganizationsPayload: object, organizationID: "my-org") == "Max 20x")
+        #expect(ClaudePlanResolver.planName(inOrganizationsPayload: object, organizationID: "other-org") == "Pro")
+        #expect(ClaudePlanResolver.planName(inOrganizationsPayload: object, organizationID: "missing") == nil)
+    }
+
+    @Test
+    func testResolvesPlanNameFromCapabilitiesWhenTierIsAbsent() throws {
+        let json = """
+        {"organizations": [{"uuid": "my-org", "capabilities": ["chat", "claude_max"]}]}
+        """
+        let object = try JSONSerialization.jsonObject(with: Data(json.utf8))
+
+        #expect(ClaudePlanResolver.planName(inOrganizationsPayload: object, organizationID: "my-org") == "Max")
+    }
+
+    @Test
+    func testPlanTierDisplayNames() {
+        #expect(ClaudePlanResolver.displayName(forTier: "default_claude_max_5x") == "Max 5x")
+        #expect(ClaudePlanResolver.displayName(forTier: "default_claude_max_20x") == "Max 20x")
+        #expect(ClaudePlanResolver.displayName(forTier: "default_free") == "Free")
+        #expect(ClaudePlanResolver.displayName(forTier: "raven") == "Team")
+        #expect(ClaudePlanResolver.displayName(forTier: "") == nil)
+        // An unrecognised tier is prettified rather than dropped.
+        #expect(ClaudePlanResolver.displayName(forTier: "default_something_new") == "Something New")
+        // Whole-token matching: "prolite" is its own tier, not Pro.
+        #expect(ClaudePlanResolver.displayName(forTier: "prolite") == "Prolite")
+    }
+
+    @Test
+    func testDiscoversFableAndOtherModelSpecificLimits() throws {
+        // Fable bills against its own weekly limit, separate from the shared pool
+        // in `seven_day`. New model buckets must be picked up without a code change.
+        let json = """
+        {
+          "five_hour": {"utilization": 3.0, "resets_at": "2026-06-22T06:39:59Z"},
+          "seven_day": {"utilization": 44.0, "resets_at": "2026-06-28T21:59:59Z"},
+          "seven_day_fable": {"utilization": 61.0, "resets_at": "2026-06-28T21:59:59Z"},
+          "seven_day_opus": null,
+          "seven_day_sonnet": {"utilization": 12.4, "resets_at": "2026-06-28T21:59:59Z"},
+          "seven_day_some_future_model": {"utilization": 5.0, "resets_at": "2026-06-28T21:59:59Z"},
+          "extra_usage": {"is_enabled": false, "monthly_limit": null, "utilization": null}
+        }
+        """
+        let object = try #require(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+        let data = try ClaudeUsagePayloadParser.parse(result: object, source: .claudeAPI)
+
+        #expect(data.snapshot.primary?.usedPercent == 3)
+        #expect(data.snapshot.secondary?.usedPercent == 44)
+        #expect(data.additionalLimits["seven_day_fable"]?.secondary?.usedPercent == 61)
+        #expect(data.additionalLimits["seven_day_some_future_model"]?.secondary?.usedPercent == 5)
+        // Null buckets and windowless objects must not become phantom limits.
+        #expect(data.additionalLimits["seven_day_opus"] == nil)
+        #expect(data.additionalLimits["extra_usage"] == nil)
+
+        let display = data.additionalLimitsForDisplay
+        #expect(display.map(\.label) == ["Fable", "Some Future Model", "Sonnet"])
+        #expect(display.allSatisfy { $0.kind == .weekly })
+        #expect(display.first?.window.remainingPercent == 39)
+    }
+
+    @Test
+    func testMainWindowKeysAreNotDuplicatedAsAdditionalLimits() throws {
+        let json = """
+        {
+          "five_hour": {"utilization": 3.0},
+          "seven_day": {"utilization": 44.0}
+        }
+        """
+        let object = try #require(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+        let data = try ClaudeUsagePayloadParser.parse(result: object, source: .claudeAPI)
+
+        #expect(data.additionalLimits.isEmpty)
+        #expect(data.additionalLimitsForDisplay.isEmpty)
+    }
+
+    @Test
     func testClientFindsLocalStoragePayloadFromFixtureDirectory() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("ClaudePulseTests-\(UUID().uuidString)", isDirectory: true)
@@ -354,7 +456,7 @@ struct ClaudePulseTests {
         #expect(client.claudeAppVersion == "1.2.3")
         #expect(data.source == .localStorage)
         #expect(data.sourcePath?.hasSuffix("000001.log") == true)
-        #expect(data.snapshot.planType == "max")
+        #expect(data.snapshot.planType == "Max")
         #expect(data.snapshot.primary?.usedPercent == 30)
         #expect(data.snapshot.primary?.resetsAt == 1_778_736_433)
         #expect(data.snapshot.secondary?.remainingPercent == 90)

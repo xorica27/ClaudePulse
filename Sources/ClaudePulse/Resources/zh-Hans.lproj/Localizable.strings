@@ -16,6 +16,7 @@
 "window.weekly" = "每周额度";
 "window.fiveHour.notification" = "5 小时";
 "window.weekly.notification" = "每周";
+"limit.labelWithWindow" = "%@（%@）";
 "detail.window" = "%@：剩余 %d%%，重置时间 %@（已用 %d%%）";
 "detail.window.unavailable" = "%@：不可用";
 "relative.dayHourAgo" = "%d 天 %d 小时前";

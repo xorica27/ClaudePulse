@@ -16,6 +16,7 @@
 "window.weekly" = "Weekly window";
 "window.fiveHour.notification" = "5-hour";
 "window.weekly.notification" = "weekly";
+"limit.labelWithWindow" = "%@ (%@)";
 "detail.window" = "%@: %d%% remaining, resets %@ (%d%% used)";
 "detail.window.unavailable" = "%@: unavailable";
 "relative.dayHourAgo" = "%dd %dh ago";

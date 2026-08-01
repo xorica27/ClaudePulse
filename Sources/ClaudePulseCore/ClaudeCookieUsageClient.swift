@@ -16,15 +16,20 @@ public final class ClaudeCookieUsageClient: @unchecked Sendable {
     public let supportPath: String
     public let apiBaseURL: URL
     public let timeoutSeconds: TimeInterval
+    public let planCacheSeconds: TimeInterval
+
+    private let planCache = PlanNameCache()
 
     public init(
         supportPath: String = "\(NSHomeDirectory())/Library/Application Support/Claude",
         apiBaseURL: URL = URL(string: "https://claude.ai")!,
-        timeoutSeconds: TimeInterval = 20
+        timeoutSeconds: TimeInterval = 20,
+        planCacheSeconds: TimeInterval = 3_600
     ) {
         self.supportPath = supportPath
         self.apiBaseURL = apiBaseURL
         self.timeoutSeconds = timeoutSeconds
+        self.planCacheSeconds = planCacheSeconds
     }
 
     public func fetch() throws -> UsageData {
@@ -62,11 +67,50 @@ public final class ClaudeCookieUsageClient: @unchecked Sendable {
             throw ClaudeUsageError.malformedResponse
         }
 
-        return try ClaudeUsagePayloadParser.parse(
+        let usageData = try ClaudeUsagePayloadParser.parse(
             result: object,
             source: .claudeAPI,
             sourcePath: "https://claude.ai/api/organizations/<organization>/usage"
         )
+
+        // The usage endpoint carries windows only, so the plan comes from the
+        // organization record. Never fail a refresh over it — usage is the point.
+        guard usageData.snapshot.planType == nil else {
+            return usageData
+        }
+        guard let planName = planName(organizationID: orgID, cookieHeader: cookieStore.header) else {
+            return usageData
+        }
+        return usageData.withPlanType(planName)
+    }
+
+    /// Fetches the plan name from `/api/organizations`, cached for `planCacheSeconds`
+    /// so a 30-second refresh interval does not re-request it every tick.
+    private func planName(organizationID: String, cookieHeader: String) -> String? {
+        if let cached = planCache.value(for: organizationID, maxAge: planCacheSeconds) {
+            return cached
+        }
+
+        var request = URLRequest(
+            url: apiBaseURL.appendingPathComponent("api").appendingPathComponent("organizations"),
+            timeoutInterval: timeoutSeconds
+        )
+        request.httpMethod = "GET"
+        request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("ClaudePulse/0.1", forHTTPHeaderField: "User-Agent")
+
+        let (data, response, error) = perform(request)
+        guard error == nil,
+              let http = response as? HTTPURLResponse,
+              (200..<300).contains(http.statusCode),
+              let object = try? JSONSerialization.jsonObject(with: data),
+              let name = ClaudePlanResolver.planName(inOrganizationsPayload: object, organizationID: organizationID) else {
+            return nil
+        }
+
+        planCache.store(name, for: organizationID)
+        return name
     }
 
     private func perform(_ request: URLRequest) -> (Data, URLResponse?, Error?) {
@@ -243,6 +287,27 @@ public final class ClaudeCookieUsageClient: @unchecked Sendable {
             throw ClaudeUsageError.cookieDecryptionFailed
         }
         return value
+    }
+}
+
+private final class PlanNameCache: @unchecked Sendable {
+    private let lock = NSLock()
+    private var entries: [String: (name: String, storedAt: Date)] = [:]
+
+    func value(for organizationID: String, maxAge: TimeInterval) -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let entry = entries[organizationID],
+              Date().timeIntervalSince(entry.storedAt) < maxAge else {
+            return nil
+        }
+        return entry.name
+    }
+
+    func store(_ name: String, for organizationID: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        entries[organizationID] = (name, Date())
     }
 }
 

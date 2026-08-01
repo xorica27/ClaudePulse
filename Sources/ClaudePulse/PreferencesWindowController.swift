@@ -151,6 +151,9 @@ private struct PreferencesView: View {
                 Text(L10n.format("preferences.plan", usageStore.data?.snapshot.planType ?? L10n.text("generic.unknown")))
                 Text(L10n.format("preferences.fiveHour", windowSummary(usageStore.data?.snapshot.primary)))
                 Text(L10n.format("preferences.weekly", windowSummary(usageStore.data?.snapshot.secondary)))
+                ForEach(usageStore.data?.additionalLimitsForDisplay ?? [], id: \.key) { limit in
+                    Text(LocalizedDisplayFormatter.detailLine(label: L10n.limitLabel(limit), window: limit.window))
+                }
             }
 
             Section(L10n.text("preferences.lastError")) {
