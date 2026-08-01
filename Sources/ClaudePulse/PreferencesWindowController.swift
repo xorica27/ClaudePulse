@@ -149,7 +149,7 @@ private struct PreferencesView: View {
                 Text(L10n.emptyStateMessage(usageStore.emptyState))
                 Text(L10n.format("preferences.source", usageStore.data?.source.rawValue ?? L10n.text("generic.none")))
                 Text(L10n.format("preferences.sourcePath", usageStore.data?.sourcePath ?? L10n.text("generic.none")))
-                Text(L10n.format("preferences.lastUpdate", usageStore.data.map { LocalizedDisplayFormatter.relativeAge($0.fetchedAt) } ?? L10n.text("generic.never")))
+                Text(L10n.format("preferences.lastUpdate", usageStore.data.map { DisplayFormatter.relativeAge($0.fetchedAt, strings: L10n.usageStrings) } ?? L10n.text("generic.never")))
             }
 
             Section(L10n.text("preferences.claude")) {
@@ -158,10 +158,11 @@ private struct PreferencesView: View {
                 Text(L10n.format("preferences.fiveHour", windowSummary(usageStore.data?.snapshot.primary)))
                 Text(L10n.format("preferences.weekly", windowSummary(usageStore.data?.snapshot.secondary)))
                 ForEach(usageStore.data?.additionalLimitsForDisplay ?? [], id: \.key) { limit in
-                    Text(LocalizedDisplayFormatter.detailLine(
+                    Text(DisplayFormatter.detailLine(
                         label: L10n.limitLabel(limit),
                         window: limit.window,
-                        resetDisplay: settings.resetDisplay
+                        resetDisplay: settings.resetDisplay,
+                        strings: L10n.usageStrings
                     ))
                 }
             }
@@ -234,8 +235,8 @@ private struct PreferencesView: View {
     }
 
     private func windowSummary(_ window: UsageWindow?) -> String {
-        LocalizedDisplayFormatter
-            .detailLine(label: "", window: window, resetDisplay: settings.resetDisplay)
+        DisplayFormatter
+            .detailLine(label: "", window: window, resetDisplay: settings.resetDisplay, strings: L10n.usageStrings)
             .trimmingCharacters(in: CharacterSet(charactersIn: ":： "))
     }
 }

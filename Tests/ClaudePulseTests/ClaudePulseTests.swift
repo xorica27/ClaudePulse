@@ -16,8 +16,16 @@ struct ClaudePulseTests {
             "status.low",
             "status.fiveHour.short",
             "status.weekly.short",
+            "percent.unknown",
+            "percent.remaining",
             "percent.used",
             "percent.remainingAndUsed",
+            "reset.unknown",
+            "detail.window",
+            "detail.window.unavailable",
+            "relative.dayHourAgo",
+            "relative.hourMinuteAgo",
+            "relative.minuteAgo",
             "limit.labelWithWindow",
             "relative.dayHourUntil",
             "relative.hourMinuteUntil",
@@ -175,20 +183,67 @@ struct ClaudePulseTests {
     }
 
     @Test
+    func testFormatterIsDrivenEntirelyByInjectedStrings() {
+        // There is one formatter; localisation is data. Swapping the strings bag
+        // must change every rendered surface, with no English leaking through.
+        let now = Date(timeIntervalSince1970: 1_778_719_500)
+        let translated = UsageFormatStrings(
+            unavailable: "KO_unavailable",
+            limited: "KO_limited",
+            stale: "KO_stale",
+            low: "KO_low",
+            fiveHourShort: "KO_5h",
+            weeklyShort: "KO_W",
+            percentUnknown: "KO_?",
+            percentRemaining: "KO_%d",
+            percentUsed: "KO_%d_used",
+            percentRemainingAndUsed: "KO_%d_%d",
+            resetUnknown: "KO_unknown",
+            resetAbsoluteAndRelative: "%@ [%@]",
+            relativeNow: "KO_now",
+            relativeDayHourUntil: "KO_%dd%dh",
+            relativeHourMinuteUntil: "KO_%dh%dm",
+            relativeMinuteUntil: "KO_%dm",
+            relativeDayHourAgo: "KO_%dd%dh_ago",
+            relativeHourMinuteAgo: "KO_%dh%dm_ago",
+            relativeMinuteAgo: "KO_%dm_ago",
+            detailWindow: "%@ | %d | %@ | %d",
+            detailWindowUnavailable: "%@ | KO_unavailable"
+        )
+        let window = UsageWindow(usedPercent: 9, windowDurationMins: 300, resetsAt: 1_778_736_433)
+        let data = UsageData(
+            snapshot: UsageSnapshot(planType: nil, primary: window, secondary: window, usageReachedType: nil),
+            additionalLimits: [:],
+            source: .claudeAPI,
+            fetchedAt: now
+        )
+
+        #expect(DisplayFormatter.statusTitle(for: data, mode: .both, now: now, strings: translated, locale: enGB)
+            == "KO_5h KO_91 KO_W KO_91")
+        #expect(DisplayFormatter.detailLine(label: "L", window: window, resetDisplay: .both, now: now, strings: translated, locale: enGB)
+            == "L | 91 | 13:27 [KO_4h42m] | 9")
+        #expect(DisplayFormatter.detailLine(label: "L", window: nil, strings: translated) == "L | KO_unavailable")
+        #expect(DisplayFormatter.percentText(nil, strings: translated) == "KO_?")
+        #expect(DisplayFormatter.relativeAge(Date(timeIntervalSince1970: 1_778_719_200), now: now, strings: translated)
+            == "KO_5m_ago")
+        #expect(DisplayFormatter.statusTitle(for: nil, mode: .both, strings: translated) == "KO_unavailable")
+    }
+
+    @Test
     func testResetTextFormats() {
         let now = Date(timeIntervalSince1970: 1_778_719_500)
         let sameDay = 1_778_736_433      // 4h 42m out
         let futureDay = 1_779_152_172    // 5d 0h out
 
-        #expect(DisplayFormatter.resetText(sameDay, display: .absolute, now: now) == "13:27")
-        #expect(DisplayFormatter.resetText(sameDay, display: .relative, now: now) == "in 4h 42m")
-        #expect(DisplayFormatter.resetText(sameDay, display: .both, now: now) == "13:27 (in 4h 42m)")
+        #expect(DisplayFormatter.resetText(sameDay, display: .absolute, now: now, locale: enGB) == "13:27")
+        #expect(DisplayFormatter.resetText(sameDay, display: .relative, now: now, locale: enGB) == "in 4h 42m")
+        #expect(DisplayFormatter.resetText(sameDay, display: .both, now: now, locale: enGB) == "13:27 (in 4h 42m)")
 
-        #expect(DisplayFormatter.resetText(futureDay, display: .absolute, now: now) == "19 May")
-        #expect(DisplayFormatter.resetText(futureDay, display: .relative, now: now) == "in 5d 0h")
-        #expect(DisplayFormatter.resetText(futureDay, display: .both, now: now) == "19 May (in 5d 0h)")
+        #expect(DisplayFormatter.resetText(futureDay, display: .absolute, now: now, locale: enGB) == "19 May")
+        #expect(DisplayFormatter.resetText(futureDay, display: .relative, now: now, locale: enGB) == "in 5d 0h")
+        #expect(DisplayFormatter.resetText(futureDay, display: .both, now: now, locale: enGB) == "19 May (in 5d 0h)")
 
-        #expect(DisplayFormatter.resetText(nil, display: .relative, now: now) == "unknown")
+        #expect(DisplayFormatter.resetText(nil, display: .relative, now: now, locale: enGB) == "unknown")
     }
 
     @Test
@@ -206,9 +261,9 @@ struct ClaudePulseTests {
         let now = Date(timeIntervalSince1970: 1_778_719_500)
         let window = UsageWindow(usedPercent: 9, windowDurationMins: 300, resetsAt: 1_778_736_433)
 
-        #expect(DisplayFormatter.detailLine(label: "5-hour window", window: window, resetDisplay: .relative, now: now)
+        #expect(DisplayFormatter.detailLine(label: "5-hour window", window: window, resetDisplay: .relative, now: now, locale: enGB)
             == "5-hour window: 91% remaining, resets in 4h 42m (9% used)")
-        #expect(DisplayFormatter.detailLine(label: "5-hour window", window: window, resetDisplay: .both, now: now)
+        #expect(DisplayFormatter.detailLine(label: "5-hour window", window: window, resetDisplay: .both, now: now, locale: enGB)
             == "5-hour window: 91% remaining, resets 13:27 (in 4h 42m) (9% used)")
     }
 
@@ -324,8 +379,8 @@ struct ClaudePulseTests {
         let sameDay = 1_778_736_433
         let futureDay = 1_779_152_172
 
-        #expect(DisplayFormatter.resetText(sameDay, now: now) == "13:27")
-        #expect(DisplayFormatter.resetText(futureDay, now: now) == "19 May")
+        #expect(DisplayFormatter.resetText(sameDay, now: now, locale: enGB) == "13:27")
+        #expect(DisplayFormatter.resetText(futureDay, now: now, locale: enGB) == "19 May")
     }
 
     @Test
@@ -584,6 +639,9 @@ struct ClaudePulseTests {
         #expect(data.snapshot.planType != nil, "plan should resolve from /api/organizations")
         print("LIVE plan=\(data.snapshot.planType ?? "nil") extras=\(data.additionalLimitsForDisplay.map(\.label))")
     }
+
+    /// Pinned so date rendering does not depend on the machine's region setting.
+    private let enGB = Locale(identifier: "en_GB")
 
     private func sampleData(
         primary: UsageWindow = UsageWindow(usedPercent: 9, windowDurationMins: 300, resetsAt: nil),

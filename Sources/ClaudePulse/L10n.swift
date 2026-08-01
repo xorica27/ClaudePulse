@@ -31,6 +31,34 @@ enum L10n {
         String(format: text(key), locale: Locale.current, arguments: arguments)
     }
 
+    /// The bundle-resolved strings `DisplayFormatter` needs. Rebuilt on demand so
+    /// that switching language in Preferences takes effect immediately.
+    static var usageStrings: UsageFormatStrings {
+        UsageFormatStrings(
+            unavailable: text("status.unavailable"),
+            limited: text("status.limited"),
+            stale: text("status.stale"),
+            low: text("status.low"),
+            fiveHourShort: text("status.fiveHour.short"),
+            weeklyShort: text("status.weekly.short"),
+            percentUnknown: text("percent.unknown"),
+            percentRemaining: text("percent.remaining"),
+            percentUsed: text("percent.used"),
+            percentRemainingAndUsed: text("percent.remainingAndUsed"),
+            resetUnknown: text("reset.unknown"),
+            resetAbsoluteAndRelative: text("reset.absoluteAndRelative"),
+            relativeNow: text("relative.now"),
+            relativeDayHourUntil: text("relative.dayHourUntil"),
+            relativeHourMinuteUntil: text("relative.hourMinuteUntil"),
+            relativeMinuteUntil: text("relative.minuteUntil"),
+            relativeDayHourAgo: text("relative.dayHourAgo"),
+            relativeHourMinuteAgo: text("relative.hourMinuteAgo"),
+            relativeMinuteAgo: text("relative.minuteAgo"),
+            detailWindow: text("detail.window"),
+            detailWindowUnavailable: text("detail.window.unavailable")
+        )
+    }
+
     static func appLanguageTitle(_ language: AppLanguage) -> String {
         switch language {
         case .system:

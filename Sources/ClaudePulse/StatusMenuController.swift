@@ -38,11 +38,12 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
     private func updateStatusTitle() {
         let settings = settingsStore.settings
-        let title = LocalizedDisplayFormatter.statusTitle(
+        let title = DisplayFormatter.statusTitle(
             for: store.data,
             mode: settings.displayMode,
             percentDisplay: settings.percentDisplay,
-            staleAfterMinutes: settings.staleAfterMinutes
+            staleAfterMinutes: settings.staleAfterMinutes,
+            strings: L10n.usageStrings
         )
         statusItem.button?.title = "  \(title)"
         let tooltip = L10n.format("status.tooltip", title)
@@ -91,27 +92,31 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
         if let data = store.data {
             let resetDisplay = settingsStore.settings.resetDisplay
-            menu.addItem(disabled(LocalizedDisplayFormatter.detailLine(
+            let strings = L10n.usageStrings
+            menu.addItem(disabled(DisplayFormatter.detailLine(
                 label: L10n.text("window.fiveHour"),
                 window: data.snapshot.primary,
-                resetDisplay: resetDisplay
+                resetDisplay: resetDisplay,
+                strings: strings
             )))
-            menu.addItem(disabled(LocalizedDisplayFormatter.detailLine(
+            menu.addItem(disabled(DisplayFormatter.detailLine(
                 label: L10n.text("window.weekly"),
                 window: data.snapshot.secondary,
-                resetDisplay: resetDisplay
+                resetDisplay: resetDisplay,
+                strings: strings
             )))
             for limit in data.additionalLimitsForDisplay {
-                menu.addItem(disabled(LocalizedDisplayFormatter.detailLine(
+                menu.addItem(disabled(DisplayFormatter.detailLine(
                     label: L10n.limitLabel(limit),
                     window: limit.window,
-                    resetDisplay: resetDisplay
+                    resetDisplay: resetDisplay,
+                    strings: strings
                 )))
             }
             if let planType = data.snapshot.planType {
                 menu.addItem(disabled(L10n.format("menu.plan", planType)))
             }
-            menu.addItem(disabled(L10n.format("menu.sourceUpdated", data.source.rawValue, LocalizedDisplayFormatter.relativeAge(data.fetchedAt))))
+            menu.addItem(disabled(L10n.format("menu.sourceUpdated", data.source.rawValue, DisplayFormatter.relativeAge(data.fetchedAt, strings: strings))))
             if let sourcePath = data.sourcePath {
                 menu.addItem(disabled(L10n.format("menu.sourcePath", sourcePath)))
             }
