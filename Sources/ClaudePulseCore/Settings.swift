@@ -17,6 +17,14 @@ public enum PercentDisplay: String, CaseIterable, Codable, Sendable {
     }
 }
 
+/// How a window's reset moment is written: as a clock time or date, as a
+/// countdown, or both.
+public enum ResetDisplay: String, CaseIterable, Codable, Sendable {
+    case absolute
+    case relative
+    case both
+}
+
 public enum RefreshInterval: Int, CaseIterable, Codable, Sendable {
     case thirtySeconds = 30
     case oneMinute = 60
@@ -66,6 +74,7 @@ public struct ClaudePulseSettings: Codable, Equatable, Sendable {
 
     public var displayMode: DisplayMode
     public var percentDisplay: PercentDisplay
+    public var resetDisplay: ResetDisplay
     public var refreshInterval: RefreshInterval
     public var appLanguage: AppLanguage
     public var notificationsEnabled: Bool
@@ -76,6 +85,7 @@ public struct ClaudePulseSettings: Codable, Equatable, Sendable {
     public static let defaults = ClaudePulseSettings(
         displayMode: .both,
         percentDisplay: .remaining,
+        resetDisplay: .absolute,
         refreshInterval: .oneMinute,
         appLanguage: .system,
         notificationsEnabled: false,
@@ -87,6 +97,7 @@ public struct ClaudePulseSettings: Codable, Equatable, Sendable {
     public init(
         displayMode: DisplayMode,
         percentDisplay: PercentDisplay,
+        resetDisplay: ResetDisplay = .absolute,
         refreshInterval: RefreshInterval,
         appLanguage: AppLanguage = .system,
         notificationsEnabled: Bool,
@@ -96,12 +107,29 @@ public struct ClaudePulseSettings: Codable, Equatable, Sendable {
     ) {
         self.displayMode = displayMode
         self.percentDisplay = percentDisplay
+        self.resetDisplay = resetDisplay
         self.refreshInterval = refreshInterval
         self.appLanguage = appLanguage
         self.notificationsEnabled = notificationsEnabled
         self.notifyFiveHourThresholds = notifyFiveHourThresholds
         self.notifyWeeklyThresholds = notifyWeeklyThresholds
         self.staleAfterMinutes = staleAfterMinutes
+    }
+
+    /// Decoded field by field so that settings saved before a field existed still
+    /// load, rather than failing outright and silently resetting everything.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let defaults = ClaudePulseSettings.defaults
+        displayMode = try container.decodeIfPresent(DisplayMode.self, forKey: .displayMode) ?? defaults.displayMode
+        percentDisplay = try container.decodeIfPresent(PercentDisplay.self, forKey: .percentDisplay) ?? defaults.percentDisplay
+        resetDisplay = try container.decodeIfPresent(ResetDisplay.self, forKey: .resetDisplay) ?? defaults.resetDisplay
+        refreshInterval = try container.decodeIfPresent(RefreshInterval.self, forKey: .refreshInterval) ?? defaults.refreshInterval
+        appLanguage = try container.decodeIfPresent(AppLanguage.self, forKey: .appLanguage) ?? defaults.appLanguage
+        notificationsEnabled = try container.decodeIfPresent(Bool.self, forKey: .notificationsEnabled) ?? defaults.notificationsEnabled
+        notifyFiveHourThresholds = try container.decodeIfPresent([Int].self, forKey: .notifyFiveHourThresholds) ?? defaults.notifyFiveHourThresholds
+        notifyWeeklyThresholds = try container.decodeIfPresent([Int].self, forKey: .notifyWeeklyThresholds) ?? defaults.notifyWeeklyThresholds
+        staleAfterMinutes = try container.decodeIfPresent(Int.self, forKey: .staleAfterMinutes) ?? defaults.staleAfterMinutes
     }
 
     public static func load(from userDefaults: UserDefaults = .standard) -> ClaudePulseSettings {
@@ -128,6 +156,7 @@ public struct ClaudePulseSettings: Codable, Equatable, Sendable {
         ClaudePulseSettings(
             displayMode: displayMode,
             percentDisplay: percentDisplay,
+            resetDisplay: resetDisplay,
             refreshInterval: refreshInterval,
             appLanguage: appLanguage,
             notificationsEnabled: notificationsEnabled,

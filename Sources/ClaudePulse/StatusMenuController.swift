@@ -90,12 +90,22 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menu.delegate = self
 
         if let data = store.data {
-            menu.addItem(disabled(LocalizedDisplayFormatter.detailLine(label: L10n.text("window.fiveHour"), window: data.snapshot.primary)))
-            menu.addItem(disabled(LocalizedDisplayFormatter.detailLine(label: L10n.text("window.weekly"), window: data.snapshot.secondary)))
+            let resetDisplay = settingsStore.settings.resetDisplay
+            menu.addItem(disabled(LocalizedDisplayFormatter.detailLine(
+                label: L10n.text("window.fiveHour"),
+                window: data.snapshot.primary,
+                resetDisplay: resetDisplay
+            )))
+            menu.addItem(disabled(LocalizedDisplayFormatter.detailLine(
+                label: L10n.text("window.weekly"),
+                window: data.snapshot.secondary,
+                resetDisplay: resetDisplay
+            )))
             for limit in data.additionalLimitsForDisplay {
                 menu.addItem(disabled(LocalizedDisplayFormatter.detailLine(
                     label: L10n.limitLabel(limit),
-                    window: limit.window
+                    window: limit.window,
+                    resetDisplay: resetDisplay
                 )))
             }
             if let planType = data.snapshot.planType {

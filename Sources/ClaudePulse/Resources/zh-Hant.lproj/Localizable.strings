@@ -22,6 +22,11 @@
 "relative.dayHourAgo" = "%d 天 %d 小時前";
 "relative.hourMinuteAgo" = "%d 小時 %d 分鐘前";
 "relative.minuteAgo" = "%d 分鐘前";
+"relative.dayHourUntil" = "%d 天 %d 小時後";
+"relative.hourMinuteUntil" = "%d 小時 %d 分鐘後";
+"relative.minuteUntil" = "%d 分鐘後";
+"relative.now" = "即將";
+"reset.absoluteAndRelative" = "%@（%@）";
 "menu.plan" = "方案：%@";
 "menu.sourceUpdated" = "來源：%@，更新於 %@";
 "menu.sourcePath" = "來源路徑：%@";
@@ -42,6 +47,7 @@
 "preferences.tab.about" = "關於";
 "preferences.menuBar" = "選單列";
 "preferences.percent" = "顯示百分比";
+"preferences.reset" = "重置時間";
 "preferences.language" = "語言";
 "preferences.refresh" = "重新整理頻率";
 "preferences.notifications" = "啟用通知";
@@ -67,6 +73,9 @@
 "percentDisplay.remaining" = "剩餘";
 "percentDisplay.used" = "已用";
 "percentDisplay.both" = "剩餘和已用";
+"resetDisplay.absolute" = "具體時間";
+"resetDisplay.relative" = "倒數計時";
+"resetDisplay.both" = "時間和倒數計時";
 "refreshInterval.thirtySeconds" = "30 秒";
 "refreshInterval.oneMinute" = "60 秒";
 "refreshInterval.fiveMinutes" = "5 分鐘";

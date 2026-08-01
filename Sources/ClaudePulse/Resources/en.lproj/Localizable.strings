@@ -22,6 +22,11 @@
 "relative.dayHourAgo" = "%dd %dh ago";
 "relative.hourMinuteAgo" = "%dh %dm ago";
 "relative.minuteAgo" = "%dm ago";
+"relative.dayHourUntil" = "in %dd %dh";
+"relative.hourMinuteUntil" = "in %dh %dm";
+"relative.minuteUntil" = "in %dm";
+"relative.now" = "now";
+"reset.absoluteAndRelative" = "%@ (%@)";
 "menu.plan" = "Plan: %@";
 "menu.sourceUpdated" = "Source: %@, updated %@";
 "menu.sourcePath" = "Source path: %@";
@@ -42,6 +47,7 @@
 "preferences.tab.about" = "About";
 "preferences.menuBar" = "Menu bar";
 "preferences.percent" = "Percent";
+"preferences.reset" = "Reset time";
 "preferences.language" = "Language";
 "preferences.refresh" = "Refresh";
 "preferences.notifications" = "Enable notifications";
@@ -67,6 +73,9 @@
 "percentDisplay.remaining" = "Remaining";
 "percentDisplay.used" = "Used";
 "percentDisplay.both" = "Remaining and used";
+"resetDisplay.absolute" = "At time/date";
+"resetDisplay.relative" = "Countdown";
+"resetDisplay.both" = "Time and countdown";
 "refreshInterval.thirtySeconds" = "30 seconds";
 "refreshInterval.oneMinute" = "60 seconds";
 "refreshInterval.fiveMinutes" = "5 minutes";

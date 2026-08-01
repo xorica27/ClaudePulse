@@ -66,6 +66,17 @@ enum L10n {
         }
     }
 
+    static func resetDisplayTitle(_ display: ResetDisplay) -> String {
+        switch display {
+        case .absolute:
+            text("resetDisplay.absolute")
+        case .relative:
+            text("resetDisplay.relative")
+        case .both:
+            text("resetDisplay.both")
+        }
+    }
+
     static func refreshIntervalTitle(_ interval: RefreshInterval) -> String {
         switch interval {
         case .thirtySeconds:

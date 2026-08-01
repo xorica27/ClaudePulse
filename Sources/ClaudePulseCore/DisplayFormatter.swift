@@ -65,28 +65,62 @@ public enum DisplayFormatter {
         }
     }
 
-    public static func resetText(_ epochSeconds: Int?, now: Date = Date()) -> String {
+    public static func resetText(
+        _ epochSeconds: Int?,
+        display: ResetDisplay = .absolute,
+        now: Date = Date()
+    ) -> String {
         guard let epochSeconds else {
             return "unknown"
         }
-        let date = Date(timeIntervalSince1970: TimeInterval(epochSeconds))
-        let calendar = Calendar.current
-        if calendar.isDate(date, inSameDayAs: now) {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "HH:mm"
-            return formatter.string(from: date)
-        }
 
+        let date = Date(timeIntervalSince1970: TimeInterval(epochSeconds))
+        switch display {
+        case .absolute:
+            return absoluteResetText(date, now: now)
+        case .relative:
+            return relativeUntil(date, now: now)
+        case .both:
+            return "\(absoluteResetText(date, now: now)) (\(relativeUntil(date, now: now)))"
+        }
+    }
+
+    private static func absoluteResetText(_ date: Date, now: Date) -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "d MMM"
+        formatter.dateFormat = Calendar.current.isDate(date, inSameDayAs: now) ? "HH:mm" : "d MMM"
         return formatter.string(from: date)
     }
 
-    public static func detailLine(label: String, window: UsageWindow?) -> String {
+    /// "in 2h 15m". A window whose reset has already passed reads "now" rather
+    /// than counting up from zero.
+    public static func relativeUntil(_ date: Date, now: Date = Date()) -> String {
+        let seconds = Int(date.timeIntervalSince(now))
+        guard seconds > 0 else {
+            return "now"
+        }
+
+        let days = seconds / 86_400
+        let hours = (seconds % 86_400) / 3_600
+        let minutes = (seconds % 3_600) / 60
+        if days > 0 {
+            return "in \(days)d \(hours)h"
+        }
+        if hours > 0 {
+            return "in \(hours)h \(minutes)m"
+        }
+        return "in \(minutes)m"
+    }
+
+    public static func detailLine(
+        label: String,
+        window: UsageWindow?,
+        resetDisplay: ResetDisplay = .absolute,
+        now: Date = Date()
+    ) -> String {
         guard let window else {
             return "\(label): unavailable"
         }
-        let reset = resetText(window.resetsAt)
+        let reset = resetText(window.resetsAt, display: resetDisplay, now: now)
         return "\(label): \(window.remainingPercent)% remaining, resets \(reset) (\(window.usedPercent)% used)"
     }
 

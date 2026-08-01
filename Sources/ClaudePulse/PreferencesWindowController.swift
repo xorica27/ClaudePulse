@@ -85,6 +85,12 @@ private struct PreferencesView: View {
                 }
             }
 
+            Picker(L10n.text("preferences.reset"), selection: binding(\.resetDisplay)) {
+                ForEach(ResetDisplay.allCases, id: \.self) { display in
+                    Text(L10n.resetDisplayTitle(display)).tag(display)
+                }
+            }
+
             Picker(L10n.text("preferences.language"), selection: binding(\.appLanguage)) {
                 ForEach(AppLanguage.allCases, id: \.self) { language in
                     Text(L10n.appLanguageTitle(language)).tag(language)
@@ -152,7 +158,11 @@ private struct PreferencesView: View {
                 Text(L10n.format("preferences.fiveHour", windowSummary(usageStore.data?.snapshot.primary)))
                 Text(L10n.format("preferences.weekly", windowSummary(usageStore.data?.snapshot.secondary)))
                 ForEach(usageStore.data?.additionalLimitsForDisplay ?? [], id: \.key) { limit in
-                    Text(LocalizedDisplayFormatter.detailLine(label: L10n.limitLabel(limit), window: limit.window))
+                    Text(LocalizedDisplayFormatter.detailLine(
+                        label: L10n.limitLabel(limit),
+                        window: limit.window,
+                        resetDisplay: settings.resetDisplay
+                    ))
                 }
             }
 
@@ -225,7 +235,7 @@ private struct PreferencesView: View {
 
     private func windowSummary(_ window: UsageWindow?) -> String {
         LocalizedDisplayFormatter
-            .detailLine(label: "", window: window)
+            .detailLine(label: "", window: window, resetDisplay: settings.resetDisplay)
             .trimmingCharacters(in: CharacterSet(charactersIn: ":： "))
     }
 }

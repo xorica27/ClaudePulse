@@ -19,6 +19,15 @@ struct ClaudePulseTests {
             "percent.used",
             "percent.remainingAndUsed",
             "limit.labelWithWindow",
+            "relative.dayHourUntil",
+            "relative.hourMinuteUntil",
+            "relative.minuteUntil",
+            "relative.now",
+            "reset.absoluteAndRelative",
+            "preferences.reset",
+            "resetDisplay.absolute",
+            "resetDisplay.relative",
+            "resetDisplay.both",
             "menu.refreshNow",
             "menu.openClaudeUsage",
             "menu.preferences",
@@ -152,6 +161,7 @@ struct ClaudePulseTests {
         let settings = ClaudePulseSettings(
             displayMode: .weekly,
             percentDisplay: .both,
+            resetDisplay: .relative,
             refreshInterval: .fiveMinutes,
             appLanguage: .traditionalChinese,
             notificationsEnabled: true,
@@ -162,6 +172,68 @@ struct ClaudePulseTests {
         settings.save(to: defaults)
 
         #expect(ClaudePulseSettings.load(from: defaults) == settings)
+    }
+
+    @Test
+    func testResetTextFormats() {
+        let now = Date(timeIntervalSince1970: 1_778_719_500)
+        let sameDay = 1_778_736_433      // 4h 42m out
+        let futureDay = 1_779_152_172    // 5d 0h out
+
+        #expect(DisplayFormatter.resetText(sameDay, display: .absolute, now: now) == "13:27")
+        #expect(DisplayFormatter.resetText(sameDay, display: .relative, now: now) == "in 4h 42m")
+        #expect(DisplayFormatter.resetText(sameDay, display: .both, now: now) == "13:27 (in 4h 42m)")
+
+        #expect(DisplayFormatter.resetText(futureDay, display: .absolute, now: now) == "19 May")
+        #expect(DisplayFormatter.resetText(futureDay, display: .relative, now: now) == "in 5d 0h")
+        #expect(DisplayFormatter.resetText(futureDay, display: .both, now: now) == "19 May (in 5d 0h)")
+
+        #expect(DisplayFormatter.resetText(nil, display: .relative, now: now) == "unknown")
+    }
+
+    @Test
+    func testRelativeResetHandlesMinutesAndElapsedWindows() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+
+        #expect(DisplayFormatter.relativeUntil(Date(timeIntervalSince1970: 1_000_900), now: now) == "in 15m")
+        // A window whose reset already passed counts as "now", never negative.
+        #expect(DisplayFormatter.relativeUntil(Date(timeIntervalSince1970: 999_000), now: now) == "now")
+        #expect(DisplayFormatter.relativeUntil(Date(timeIntervalSince1970: 1_000_000), now: now) == "now")
+    }
+
+    @Test
+    func testDetailLineHonoursResetDisplay() {
+        let now = Date(timeIntervalSince1970: 1_778_719_500)
+        let window = UsageWindow(usedPercent: 9, windowDurationMins: 300, resetsAt: 1_778_736_433)
+
+        #expect(DisplayFormatter.detailLine(label: "5-hour window", window: window, resetDisplay: .relative, now: now)
+            == "5-hour window: 91% remaining, resets in 4h 42m (9% used)")
+        #expect(DisplayFormatter.detailLine(label: "5-hour window", window: window, resetDisplay: .both, now: now)
+            == "5-hour window: 91% remaining, resets 13:27 (in 4h 42m) (9% used)")
+    }
+
+    @Test
+    func testSettingsSavedBeforeResetDisplayExistedStillLoad() throws {
+        let suiteName = "ClaudePulseTests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        // Exactly what an older build wrote: no resetDisplay key at all. It must
+        // not blow away the rest of the user's saved preferences.
+        let legacy = """
+        {"displayMode":"weekly","percentDisplay":"used","refreshInterval":300,
+         "appLanguage":"english","notificationsEnabled":true,
+         "notifyFiveHourThresholds":[10],"notifyWeeklyThresholds":[20],
+         "staleAfterMinutes":45}
+        """
+        defaults.set(Data(legacy.utf8), forKey: "claudePulseSettings")
+
+        let loaded = ClaudePulseSettings.load(from: defaults)
+        #expect(loaded.resetDisplay == .absolute)
+        #expect(loaded.displayMode == .weekly)
+        #expect(loaded.percentDisplay == .used)
+        #expect(loaded.refreshInterval == .fiveMinutes)
+        #expect(loaded.staleAfterMinutes == 45)
     }
 
     @Test

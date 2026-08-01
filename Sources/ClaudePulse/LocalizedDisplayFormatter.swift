@@ -59,12 +59,31 @@ enum LocalizedDisplayFormatter {
         }
     }
 
-    static func resetText(_ epochSeconds: Int?, now: Date = Date()) -> String {
+    static func resetText(
+        _ epochSeconds: Int?,
+        display: ResetDisplay = .absolute,
+        now: Date = Date()
+    ) -> String {
         guard let epochSeconds else {
             return L10n.text("reset.unknown")
         }
 
         let date = Date(timeIntervalSince1970: TimeInterval(epochSeconds))
+        switch display {
+        case .absolute:
+            return absoluteResetText(date, now: now)
+        case .relative:
+            return relativeUntil(date, now: now)
+        case .both:
+            return L10n.format(
+                "reset.absoluteAndRelative",
+                absoluteResetText(date, now: now),
+                relativeUntil(date, now: now)
+            )
+        }
+    }
+
+    private static func absoluteResetText(_ date: Date, now: Date) -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale.current
         formatter.calendar = Calendar.current
@@ -78,7 +97,33 @@ enum LocalizedDisplayFormatter {
         return formatter.string(from: date)
     }
 
-    static func detailLine(label: String, window: UsageWindow?) -> String {
+    /// "in 2h 15m". A window whose reset has already passed reads "now" rather
+    /// than counting up from zero.
+    static func relativeUntil(_ date: Date, now: Date = Date()) -> String {
+        let seconds = Int(date.timeIntervalSince(now))
+        guard seconds > 0 else {
+            return L10n.text("relative.now")
+        }
+
+        let days = seconds / 86_400
+        let hours = (seconds % 86_400) / 3_600
+        let minutes = (seconds % 3_600) / 60
+
+        if days > 0 {
+            return L10n.format("relative.dayHourUntil", days, hours)
+        }
+        if hours > 0 {
+            return L10n.format("relative.hourMinuteUntil", hours, minutes)
+        }
+        return L10n.format("relative.minuteUntil", minutes)
+    }
+
+    static func detailLine(
+        label: String,
+        window: UsageWindow?,
+        resetDisplay: ResetDisplay = .absolute,
+        now: Date = Date()
+    ) -> String {
         guard let window else {
             return L10n.format("detail.window.unavailable", label)
         }
@@ -87,7 +132,7 @@ enum LocalizedDisplayFormatter {
             "detail.window",
             label,
             window.remainingPercent,
-            resetText(window.resetsAt),
+            resetText(window.resetsAt, display: resetDisplay, now: now),
             window.usedPercent
         )
     }
