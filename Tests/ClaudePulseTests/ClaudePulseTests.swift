@@ -405,6 +405,42 @@ struct ClaudePulseTests {
     }
 
     @Test
+    func testParsesLiveUsagePayloadShape() throws {
+        // Trimmed from a real /api/organizations/<uuid>/usage response. The codenamed
+        // buckets and the non-resetting credit pools are the parts that trip up
+        // generic window discovery.
+        let json = """
+        {
+          "five_hour": {"utilization": 3.0, "used_dollars": 1.2, "limit_dollars": 40.0, "resets_at": "2026-08-01T06:39:59Z"},
+          "seven_day": {"utilization": 44.0, "used_dollars": 88.0, "limit_dollars": 200.0, "resets_at": "2026-08-05T21:59:59Z"},
+          "seven_day_opus": null,
+          "seven_day_sonnet": null,
+          "seven_day_cowork": null,
+          "seven_day_oauth_apps": null,
+          "seven_day_omelette": null,
+          "omelette_promotional": null,
+          "amber_ladder": null,
+          "tangelo": null,
+          "member_dashboard_available": true,
+          "limits": [],
+          "extra_usage": {"is_enabled": true, "utilization": 12.0, "monthly_limit": 50, "used_credits": 6},
+          "spend": {"enabled": true, "percent": 30, "used": 15, "limit": 50, "balance": 35}
+        }
+        """
+        let object = try #require(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+        let data = try ClaudeUsagePayloadParser.parse(result: object, source: .claudeAPI)
+
+        // The top-level `limits` array must not be mistaken for a usage container.
+        #expect(data.snapshot.primary?.usedPercent == 3)
+        #expect(data.snapshot.secondary?.usedPercent == 44)
+        #expect(data.snapshot.planType == nil)
+
+        // Credit pools expose a percentage but never reset, so they are not windows.
+        #expect(data.additionalLimits["spend"] == nil)
+        #expect(data.additionalLimitsForDisplay.isEmpty)
+    }
+
+    @Test
     func testMainWindowKeysAreNotDuplicatedAsAdditionalLimits() throws {
         let json = """
         {
@@ -473,6 +509,8 @@ struct ClaudePulseTests {
         #expect(data.source == .claudeAPI)
         #expect(data.snapshot.primary != nil || data.snapshot.secondary != nil)
         #expect(data.sourcePath == "https://claude.ai/api/organizations/<organization>/usage")
+        #expect(data.snapshot.planType != nil, "plan should resolve from /api/organizations")
+        print("LIVE plan=\(data.snapshot.planType ?? "nil") extras=\(data.additionalLimitsForDisplay.map(\.label))")
     }
 
     private func sampleData(

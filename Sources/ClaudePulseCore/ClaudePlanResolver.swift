@@ -3,9 +3,12 @@ import Foundation
 /// Resolves a human-readable Claude plan name from the organizations payload.
 ///
 /// `/api/organizations/<uuid>/usage` only carries rate-limit windows, so the plan
-/// has to come from the organization record itself. Which field holds it has moved
-/// around between `rate_limit_tier`, `capabilities`, and `organization_type`, so we
-/// probe them in specificity order rather than betting on one name.
+/// has to come from the organization record itself.
+///
+/// Verified against a live `/api/organizations` response: the organization object
+/// carries `rate_limit_tier` (e.g. `default_claude_max_5x`) and a `capabilities`
+/// array (e.g. `["claude_max", "chat"]`). `capabilities` and the remaining probes
+/// are kept as fallbacks in case the primary field is renamed.
 public enum ClaudePlanResolver {
     public static func planName(inOrganizationsPayload object: Any, organizationID: String) -> String? {
         guard let organization = organization(in: object, id: organizationID) else {

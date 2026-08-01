@@ -35,8 +35,15 @@ public enum ClaudeUsagePayloadParser {
             "quota",
             "limits"
         ] {
+            // Only pivot into a container that actually holds windows. The live
+            // usage response has a top-level `limits` key that is an array today;
+            // if it ever became an object, blindly descending would drop
+            // `five_hour` and `seven_day` on the floor.
             if let value = object[key] as? [String: Any] {
-                return value
+                let candidate = parseSnapshot(value)
+                if candidate.primary != nil || candidate.secondary != nil {
+                    return value
+                }
             }
         }
         return nil
@@ -87,17 +94,22 @@ public enum ClaudeUsagePayloadParser {
                 additional[key] = snapshot
             }
         }
-        // Model- and feature-specific buckets (seven_day_fable, seven_day_opus,
-        // seven_day_sonnet, seven_day_cowork, ...) appear and disappear as models
-        // ship, so discover any sibling object that parses as a window rather than
-        // maintaining a fixed list that silently drops new ones. Fable in
-        // particular bills against its own weekly limit, separate from the shared
-        // pool reported by `secondary`.
+        // Model- and feature-specific buckets appear and disappear as models ship,
+        // and the live response carries several under rotating internal codenames
+        // alongside seven_day_opus/sonnet/cowork. Discover any sibling that looks
+        // like a window instead of maintaining a fixed list that silently drops new
+        // ones — that is how Fable's separate weekly limit gets picked up without
+        // knowing its key in advance.
+        //
+        // A reset timestamp is what separates a rate-limit window from the credit
+        // pools in the same payload: `spend` has a `percent` and `extra_usage` has a
+        // `utilization`, but neither resets, and neither is a rate limit.
         for (key, value) in bucket {
             guard additional[key] == nil,
                   !Self.mainWindowKeys.contains(key),
                   let object = value as? [String: Any],
-                  let window = parseWindow(object) else {
+                  let window = parseWindow(object),
+                  window.resetsAt != nil else {
                 continue
             }
 

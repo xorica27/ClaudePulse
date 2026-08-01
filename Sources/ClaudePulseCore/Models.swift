@@ -144,6 +144,10 @@ public struct UsageData: Codable, Equatable, Sendable {
     }
 
     /// The model- and feature-specific limits, in a stable order fit for display.
+    ///
+    /// Only resetting windows qualify. The usage payload also carries credit pools
+    /// (`spend`, `extra_usage`) that expose a percentage but never reset, and
+    /// rendering those as a 5-hour or weekly window would misdescribe them.
     public var additionalLimitsForDisplay: [NamedUsageLimit] {
         additionalLimits
             .compactMap { key, snapshot -> NamedUsageLimit? in
@@ -156,6 +160,10 @@ public struct UsageData: Codable, Equatable, Sendable {
                     kind = .fiveHour
                     window = primary
                 } else {
+                    return nil
+                }
+
+                guard window.resetsAt != nil else {
                     return nil
                 }
 
