@@ -15,7 +15,7 @@ Suggested flow:
   1. Sign ClaudePulse.app with Developer ID Application.
   2. Zip the app.
   3. Submit with:
-     xcrun notarytool submit dist/ClaudePulse-macos-arm64.zip \
+     xcrun notarytool submit dist/ClaudePulse-macos-universal.zip \
        --apple-id "$APPLE_ID" \
        --team-id "$APPLE_TEAM_ID" \
        --password "$APPLE_APP_SPECIFIC_PASSWORD" \

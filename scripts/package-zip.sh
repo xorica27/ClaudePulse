@@ -4,11 +4,16 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
 APP_DIR="$DIST_DIR/ClaudePulse.app"
-ZIP_PATH="$DIST_DIR/ClaudePulse-macos-arm64.zip"
+
+# shellcheck source=scripts/artifact-slug.sh
+source "$ROOT_DIR/scripts/artifact-slug.sh"
 
 if [[ ! -d "$APP_DIR" ]]; then
   "$ROOT_DIR/scripts/build-release.sh"
 fi
+
+ARCH_SLUG="$(binary_arch_slug "$APP_DIR/Contents/MacOS/ClaudePulse")"
+ZIP_PATH="$DIST_DIR/ClaudePulse-macos-$ARCH_SLUG.zip"
 
 rm -f "$ZIP_PATH"
 (

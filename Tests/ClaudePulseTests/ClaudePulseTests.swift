@@ -102,7 +102,46 @@ struct ClaudePulseTests {
 
         #expect(FileManager.default.isExecutableFile(atPath: packageDmgScript.path))
         #expect(FileManager.default.fileExists(atPath: backgroundScript.path))
-        #expect(readme.contains("ClaudePulse-macos-arm64.dmg"))
+        #expect(readme.contains("ClaudePulse-macos-universal.dmg"))
+    }
+
+    /// The app has no architecture-specific code, so Intel support is purely a
+    /// question of what the release script builds. Pin it: a build that quietly
+    /// drops back to one slice would ship a download Intel Macs cannot open.
+    @Test
+    func testReleaseBuildIsUniversal() throws {
+        let root = packageRoot()
+        let buildScript = try String(
+            contentsOf: root.appendingPathComponent("scripts/build-release.sh"),
+            encoding: .utf8
+        )
+        let readme = try String(contentsOf: root.appendingPathComponent("README.md"), encoding: .utf8)
+
+        #expect(buildScript.contains("CLAUDEPULSE_ARCHS:-arm64 x86_64"))
+        #expect(buildScript.contains("lipo -archs"))
+        #expect(!buildScript.contains(".build/arm64-apple-macosx"))
+        #expect(readme.contains("Apple Silicon or Intel Mac"))
+    }
+
+    /// Artifact names are derived from the built binary rather than hardcoded,
+    /// so a filename can never claim a slice the app does not carry.
+    @Test
+    func testPackagingScriptsNameArtifactsFromTheBinary() throws {
+        let root = packageRoot()
+        let slugHelper = root.appendingPathComponent("scripts/artifact-slug.sh")
+
+        #expect(FileManager.default.fileExists(atPath: slugHelper.path))
+
+        for script in ["scripts/package-dmg.sh", "scripts/package-zip.sh"] {
+            let source = try String(
+                contentsOf: root.appendingPathComponent(script),
+                encoding: .utf8
+            )
+
+            #expect(source.contains("artifact-slug.sh"))
+            #expect(source.contains("binary_arch_slug"))
+            #expect(!source.contains("macos-arm64"))
+        }
     }
 
     @Test

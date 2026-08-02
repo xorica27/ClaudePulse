@@ -7,12 +7,13 @@ APP_NAME="ClaudePulse"
 APP_DIR="$DIST_DIR/$APP_NAME.app"
 VERSION="$(/usr/bin/plutil -extract CFBundleShortVersionString raw -o - "$ROOT_DIR/Sources/ClaudePulse/Info.plist")"
 VOLUME_NAME="$APP_NAME $VERSION"
-DMG_NAME="$APP_NAME-macos-arm64.dmg"
 DMG_WORK_DIR="$DIST_DIR/dmg-work"
 DMG_STAGING_DIR="$DMG_WORK_DIR/staging"
 RW_DMG="$DMG_WORK_DIR/$APP_NAME-$VERSION-rw.dmg"
-FINAL_DMG="$DIST_DIR/$DMG_NAME"
 BACKGROUND_NAME="background.png"
+
+# shellcheck source=scripts/artifact-slug.sh
+source "$ROOT_DIR/scripts/artifact-slug.sh"
 
 # Single source of truth for the installer window: the background is rendered at
 # exactly these dimensions, so the two can never drift apart.
@@ -28,6 +29,9 @@ LINK_ICON_X=500
 if [[ ! -d "$APP_DIR" ]]; then
   "$ROOT_DIR/scripts/build-release.sh"
 fi
+
+ARCH_SLUG="$(binary_arch_slug "$APP_DIR/Contents/MacOS/$APP_NAME")"
+FINAL_DMG="$DIST_DIR/$APP_NAME-macos-$ARCH_SLUG.dmg"
 
 if ! command -v hdiutil >/dev/null 2>&1; then
   echo "hdiutil is required on macOS." >&2

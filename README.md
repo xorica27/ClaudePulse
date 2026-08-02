@@ -29,12 +29,14 @@ Before using ClaudePulse, install and open the official Claude app at least once
 
 Then:
 
-1. Download `ClaudePulse-macos-arm64.dmg` from the latest GitHub release.
+1. Download `ClaudePulse-macos-universal.dmg` from the latest GitHub release.
 2. Open the DMG.
 3. Drag `ClaudePulse.app` into `Applications`.
 4. Open it once.
 
-The zip artifact, `ClaudePulse-macos-arm64.zip`, is also available for manual installs or troubleshooting.
+The download is a universal binary: it runs natively on both Apple Silicon and Intel Macs, with no Rosetta needed on either.
+
+The zip artifact, `ClaudePulse-macos-universal.zip`, is also available for manual installs or troubleshooting.
 
 Because this early release is ad-hoc signed, macOS may block the first launch. If that happens, right-click `ClaudePulse.app`, choose **Open**, then confirm. After that, it opens normally.
 
@@ -85,7 +87,7 @@ ClaudePulse uses Claude Desktop's local encrypted cookies to make an authenticat
 ## Requirements
 
 - macOS 13 or newer
-- Apple Silicon Mac
+- Apple Silicon or Intel Mac
 - The official Claude app installed at `/Applications/Claude.app`
 - Claude opened and signed in at least once on the same Mac
 
@@ -101,6 +103,12 @@ scripts/package-zip.sh
 ```
 
 The app bundle, DMG, and zip are created in `dist/`.
+
+`scripts/build-release.sh` produces a universal `arm64` + `x86_64` binary, and the packaging scripts name their artifacts after the slices the binary actually carries. For a faster single-architecture local build, set `CLAUDEPULSE_ARCHS`:
+
+```sh
+CLAUDEPULSE_ARCHS=arm64 scripts/build-release.sh
+```
 
 Optional notarization support can be added later through `scripts/notarize.sh` once a Developer ID certificate is available.
 
