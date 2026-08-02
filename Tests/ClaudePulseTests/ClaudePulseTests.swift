@@ -118,9 +118,14 @@ struct ClaudePulseTests {
         let readme = try String(contentsOf: root.appendingPathComponent("README.md"), encoding: .utf8)
 
         #expect(buildScript.contains("CLAUDEPULSE_ARCHS:-arm64 x86_64"))
+        #expect(buildScript.contains("lipo -create"))
         #expect(buildScript.contains("lipo -archs"))
-        #expect(!buildScript.contains(".build/arm64-apple-macosx"))
         #expect(readme.contains("Apple Silicon or Intel Mac"))
+
+        // Several --arch flags on one `swift build` need xcbuild, which ships
+        // only with full Xcode. The slices are built separately and merged so
+        // the Command Line Tools are enough.
+        #expect(!buildScript.contains("ARCH_FLAGS"))
     }
 
     /// Artifact names are derived from the built binary rather than hardcoded,

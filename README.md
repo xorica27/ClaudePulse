@@ -104,7 +104,9 @@ scripts/package-zip.sh
 
 The app bundle, DMG, and zip are created in `dist/`.
 
-`scripts/build-release.sh` produces a universal `arm64` + `x86_64` binary, and the packaging scripts name their artifacts after the slices the binary actually carries. For a faster single-architecture local build, set `CLAUDEPULSE_ARCHS`:
+`scripts/build-release.sh` produces a universal `arm64` + `x86_64` binary by building each architecture separately and merging them with `lipo`, and the packaging scripts name their artifacts after the slices the binary actually carries. Building each slice on its own keeps the Xcode Command Line Tools sufficient — a single `swift build` given several `--arch` flags would instead need full Xcode, which supplies the `xcbuild` the Command Line Tools do not.
+
+For a faster single-architecture local build, set `CLAUDEPULSE_ARCHS`:
 
 ```sh
 CLAUDEPULSE_ARCHS=arm64 scripts/build-release.sh

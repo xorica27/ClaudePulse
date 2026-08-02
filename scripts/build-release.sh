@@ -15,40 +15,50 @@ CLAUDEPULSE_ARCHS="${CLAUDEPULSE_ARCHS:-arm64 x86_64}"
 
 cd "$ROOT_DIR"
 
-ARCH_FLAGS=()
+# Each architecture is built on its own and the slices are merged afterwards.
+# Passing several --arch flags to a single `swift build` would be shorter, but
+# it routes SwiftPM through xcbuild, which ships only with full Xcode — the
+# Command Line Tools alone cannot build that way.
+SLICES=()
 for arch in $CLAUDEPULSE_ARCHS; do
-  ARCH_FLAGS+=("--arch" "$arch")
-done
+  echo "Building $arch…"
+  swift build -c release --arch "$arch"
 
-swift build -c release "${ARCH_FLAGS[@]}"
+  BIN_PATH="$(swift build -c release --arch "$arch" --show-bin-path 2>/dev/null || true)"
+  SLICE="$BIN_PATH/ClaudePulse"
+  if [[ -z "$BIN_PATH" || ! -f "$SLICE" ]]; then
+    SLICE="$ROOT_DIR/.build/$arch-apple-macosx/release/ClaudePulse"
+  fi
 
-# A multi-arch build lands in .build/apple/Products/Release rather than the
-# single-arch triple directory, so ask SwiftPM where it put things instead of
-# guessing.
-BIN_PATH="$(swift build -c release "${ARCH_FLAGS[@]}" --show-bin-path)"
-BINARY="$BIN_PATH/ClaudePulse"
-
-if [[ ! -f "$BINARY" ]]; then
-  echo "Expected the built binary at $BINARY." >&2
-  exit 1
-fi
-
-for arch in $CLAUDEPULSE_ARCHS; do
-  if ! /usr/bin/lipo -archs "$BINARY" | tr ' ' '\n' | grep -qx "$arch"; then
-    echo "Built binary is missing the $arch slice: $(/usr/bin/lipo -archs "$BINARY")" >&2
+  if [[ ! -f "$SLICE" ]]; then
+    echo "Could not find the $arch build product." >&2
     exit 1
   fi
+
+  SLICES+=("$SLICE")
 done
 
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 
-cp "$BINARY" "$MACOS_DIR/ClaudePulse"
+# lipo -create takes a single slice happily, so CLAUDEPULSE_ARCHS=arm64 walks
+# the same path as a universal build rather than a special case.
+/usr/bin/lipo -create "${SLICES[@]}" -output "$MACOS_DIR/ClaudePulse"
+
+for arch in $CLAUDEPULSE_ARCHS; do
+  if ! /usr/bin/lipo -archs "$MACOS_DIR/ClaudePulse" | tr ' ' '\n' | grep -qx "$arch"; then
+    echo "Merged binary is missing the $arch slice: $(/usr/bin/lipo -archs "$MACOS_DIR/ClaudePulse")" >&2
+    exit 1
+  fi
+done
+
 cp "Sources/ClaudePulse/Info.plist" "$CONTENTS_DIR/Info.plist"
 cp -R "Sources/ClaudePulse/Resources/." "$RESOURCES_DIR/"
 
 chmod +x "$MACOS_DIR/ClaudePulse"
 
+# Signing has to happen after the merge — signing slices first and lipo-ing them
+# together afterwards would invalidate the signature.
 /usr/bin/codesign --force --deep --sign - "$APP_DIR"
 
 echo "Built $APP_DIR ($(/usr/bin/lipo -archs "$MACOS_DIR/ClaudePulse"))"
