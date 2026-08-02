@@ -1,16 +1,29 @@
 import AppKit
 import Foundation
 
-guard CommandLine.arguments.count == 2 || CommandLine.arguments.count == 4 else {
+// `swift generate-dmg-background.swift out.png 680 420` runs this file through
+// the interpreter, and swift-frontend leaves its own entire invocation in
+// CommandLine.arguments with the script's arguments appended after a trailing
+// `--`. Reading arguments[1] therefore picks up a compiler flag rather than the
+// output path. Slice from the last `--` so the arguments are the same whether
+// this file is interpreted or compiled.
+let arguments: [String] = {
+    if let separator = CommandLine.arguments.lastIndex(of: "--") {
+        return Array(CommandLine.arguments[(separator + 1)...])
+    }
+    return Array(CommandLine.arguments.dropFirst())
+}()
+
+guard arguments.count == 1 || arguments.count == 3 else {
     fputs("Usage: generate-dmg-background.swift <output.png> [width height]\n", stderr)
     exit(2)
 }
 
-let outputURL = URL(fileURLWithPath: CommandLine.arguments[1])
+let outputURL = URL(fileURLWithPath: arguments[0])
 // package-dmg.sh passes the installer window size so the background can never
 // drift out of sync with it.
-let width = CommandLine.arguments.count == 4 ? Double(CommandLine.arguments[2]) ?? 680 : 680
-let height = CommandLine.arguments.count == 4 ? Double(CommandLine.arguments[3]) ?? 420 : 420
+let width = arguments.count == 3 ? Double(arguments[1]) ?? 680 : 680
+let height = arguments.count == 3 ? Double(arguments[2]) ?? 420 : 420
 let size = NSSize(width: width, height: height)
 let image = NSImage(size: size)
 

@@ -105,6 +105,23 @@ struct ClaudePulseTests {
         #expect(readme.contains("ClaudePulse-macos-universal.dmg"))
     }
 
+    /// `swift file.swift a b c` interprets the file, and swift-frontend leaves
+    /// its whole invocation in CommandLine.arguments with the script's own
+    /// arguments after a trailing `--`. Indexing arguments[1] therefore reads a
+    /// compiler flag instead of the output path, which failed the usage guard
+    /// and broke `package-dmg.sh` outright.
+    @Test
+    func testDmgBackgroundReadsArgumentsAfterTheFrontendSeparator() throws {
+        let source = try String(
+            contentsOf: packageRoot().appendingPathComponent("scripts/generate-dmg-background.swift"),
+            encoding: .utf8
+        )
+
+        #expect(source.contains("lastIndex(of: \"--\")"))
+        #expect(!source.contains("CommandLine.arguments[1]"))
+        #expect(!source.contains("CommandLine.arguments.count == 2"))
+    }
+
     /// The app has no architecture-specific code, so Intel support is purely a
     /// question of what the release script builds. Pin it: a build that quietly
     /// drops back to one slice would ship a download Intel Macs cannot open.
