@@ -21,4 +21,7 @@ rm -f "$ZIP_PATH"
   /usr/bin/zip -qry -X "$ZIP_PATH" "ClaudePulse.app"
 )
 
-echo "Packaged $ZIP_PATH"
+cd "$DIST_DIR"
+/usr/bin/shasum -a 256 "$(basename "$ZIP_PATH")" | tee "$(basename "$ZIP_PATH").sha256"
+
+echo "Packaged $ZIP_PATH and $ZIP_PATH.sha256"

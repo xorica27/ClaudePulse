@@ -167,14 +167,29 @@ struct ClaudePulseTests {
     }
 
     @Test
-    func testLaunchAtLoginDoesNotBootstrapImmediately() throws {
+    func testLaunchAtLoginBootstrapsOnEnable() throws {
         let source = try String(
             contentsOf: packageRoot().appendingPathComponent("Sources/ClaudePulse/LaunchAtLoginManager.swift"),
             encoding: .utf8
         )
 
         #expect(source.contains("\"RunAtLoad\": true"))
-        #expect(!source.contains("\"bootstrap\""))
+        #expect(source.contains("\"bootstrap\""))
+    }
+
+    @Test
+    func testPackagingScriptsEmitSha256Checksums() throws {
+        let root = packageRoot()
+
+        for script in ["scripts/package-dmg.sh", "scripts/package-zip.sh"] {
+            let source = try String(
+                contentsOf: root.appendingPathComponent(script),
+                encoding: .utf8
+            )
+
+            #expect(source.contains("shasum -a 256"))
+            #expect(source.contains(".sha256"))
+        }
     }
 
     @Test

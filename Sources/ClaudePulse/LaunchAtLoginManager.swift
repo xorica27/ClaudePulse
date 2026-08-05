@@ -38,6 +38,12 @@ final class LaunchAtLoginManager {
 
         let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
         try data.write(to: launchAgentURL, options: .atomic)
+
+        // Load the agent now so the toggle takes effect immediately rather than
+        // waiting for the next login. Boot out first so a stale loaded copy can
+        // never block the bootstrap when disk and launchd disagree.
+        _ = runLaunchctl(arguments: ["bootout", guiDomain, launchAgentURL.path])
+        _ = runLaunchctl(arguments: ["bootstrap", guiDomain, launchAgentURL.path])
     }
 
     private func disable() {

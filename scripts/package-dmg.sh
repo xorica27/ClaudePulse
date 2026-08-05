@@ -144,4 +144,7 @@ DEVICE=""
 
 hdiutil convert "$RW_DMG" -format UDZO -imagekey zlib-level=9 -o "$FINAL_DMG" >/dev/null
 
-echo "Packaged $FINAL_DMG"
+cd "$DIST_DIR"
+/usr/bin/shasum -a 256 "$(basename "$FINAL_DMG")" | tee "$(basename "$FINAL_DMG").sha256"
+
+echo "Packaged $FINAL_DMG and $FINAL_DMG.sha256"

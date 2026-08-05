@@ -1,3 +1,16 @@
+# ClaudePulse 0.2.2
+
+Checksummed releases, and a Launch at Login toggle that works immediately.
+
+## Added
+
+- **SHA-256 checksums.** `package-dmg.sh` and `package-zip.sh` now write a `.sha256` file next to each artifact, so a downloaded DMG or zip can be verified against the published hash.
+
+## Changed
+
+- **Launch at Login applies immediately.** Enabling it now bootstraps the LaunchAgent right away instead of waiting for the next login.
+- **Release builds no longer depend on the locale.** A multibyte character directly after a shell variable made `build-release.sh` fail on systems whose default locale is not a classic UTF-8 locale (including `C.UTF-8`); the build now works regardless of locale.
+
 # ClaudePulse 0.2.1
 
 ClaudePulse now runs on Intel Macs.

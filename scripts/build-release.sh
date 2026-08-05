@@ -21,7 +21,7 @@ cd "$ROOT_DIR"
 # Command Line Tools alone cannot build that way.
 SLICES=()
 for arch in $CLAUDEPULSE_ARCHS; do
-  echo "Building $arch…"
+  echo "Building ${arch}…"
   swift build -c release --arch "$arch"
 
   BIN_PATH="$(swift build -c release --arch "$arch" --show-bin-path 2>/dev/null || true)"
